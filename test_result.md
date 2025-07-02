@@ -191,15 +191,18 @@ backend:
 
   - task: "Get My Bookings"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
-    stuck_count: 1
+    stuck_count: 0
     priority: "medium"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "testing"
         comment: "Get my bookings endpoint (/api/bookings/my) is not working correctly. There's an issue with MongoDB ObjectId serialization. Error: ValueError: [TypeError(\"'ObjectId' object is not iterable\"), TypeError('vars() argument must have __dict__ attribute')]"
+      - working: true
+        agent: "testing"
+        comment: "Fixed the ObjectId serialization issue by adding a serialize_mongodb_doc helper function and updating the get_my_bookings endpoint to use it. The endpoint now correctly returns the user's bookings."
 
 frontend:
   - task: "Frontend Testing"
