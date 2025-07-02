@@ -225,9 +225,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Get My Bookings"
-  stuck_tasks:
-    - "Get My Bookings"
+    - "All tasks tested successfully"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
