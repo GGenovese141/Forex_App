@@ -99,6 +99,31 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+def serialize_mongodb_doc(doc):
+    """Convert MongoDB document to JSON-serializable dict."""
+    if doc is None:
+        return None
+    
+    result = {}
+    for key, value in doc.items():
+        if key == '_id':
+            # Convert ObjectId to string
+            result['id'] = str(value)
+        elif isinstance(value, list):
+            # Handle lists (potentially containing ObjectIds)
+            result[key] = [serialize_mongodb_doc(item) if isinstance(item, dict) else str(item) if hasattr(item, '__str__') and not isinstance(item, (str, int, float, bool, type(None))) else item for item in value]
+        elif isinstance(value, dict):
+            # Recursively serialize nested documents
+            result[key] = serialize_mongodb_doc(value)
+        elif hasattr(value, '__str__') and not isinstance(value, (str, int, float, bool, type(None))):
+            # Convert any other non-serializable types to string
+            result[key] = str(value)
+        else:
+            # Keep serializable types as is
+            result[key] = value
+    
+    return result
+
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     try:
         payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=[ALGORITHM])
