@@ -45,6 +45,34 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Course pricing configuration
+COURSE_PACKAGES: Dict[str, Dict] = {
+    "corso_completo": {
+        "name": "Corso Completo",
+        "price": 79.99,
+        "currency": "EUR",
+        "description": "Accesso completo a tutti i contenuti del corso"
+    },
+    "powerpoint_strategie": {
+        "name": "PowerPoint Strategie",
+        "price": 10.99,
+        "currency": "EUR",
+        "description": "PowerPoint delle strategie di lettura del grafico"
+    },
+    "video_strategia": {
+        "name": "Video Strategia",
+        "price": 14.99,
+        "currency": "EUR",
+        "description": "Videolezione sulla strategia e sulla sua configurazione"
+    },
+    "powerpoint_nicchia": {
+        "name": "PowerPoint Nicchia",
+        "price": 17.99,
+        "currency": "EUR",
+        "description": "PowerPoint su argomenti di nicchia inerenti al macro argomento"
+    }
+}
+
 # Pydantic models
 class UserRegistration(BaseModel):
     email: EmailStr
@@ -80,7 +108,13 @@ class PaymentRequest(BaseModel):
 class AdminConfig(BaseModel):
     paypal_client_id: Optional[str] = None
     paypal_client_secret: Optional[str] = None
+    paypal_mode: Optional[str] = None
     google_calendar_credentials: Optional[str] = None
+
+class PayPalOrderRequest(BaseModel):
+    course_package: str
+    user_email: EmailStr
+    amount: float
 
 # Utility functions
 def verify_password(plain_password, hashed_password):
@@ -265,51 +299,93 @@ async def get_my_bookings(current_user: str = Depends(get_current_user)):
     serialized_bookings = [serialize_mongodb_doc(booking) for booking in bookings]
     return {"bookings": serialized_bookings}
 
-# Payment routes (PayPal integration placeholder)
-@app.post("/api/payment/create-order")
-async def create_payment_order(payment: PaymentRequest):
-    # This will be expanded with PayPal integration
-    order_doc = {
-        "id": str(uuid.uuid4()),
-        "course_package": payment.course_package,
-        "user_email": payment.user_email,
-        "amount": payment.amount,
-        "status": "pending",
-        "created_at": datetime.utcnow()
-    }
-    
-    result = await db.payment_orders.insert_one(order_doc)
-    return {"order_id": order_doc["id"], "status": "created"}
+# PayPal Payment routes
+@app.post("/api/paypal/create-order")
+async def create_paypal_order(order_request: PayPalOrderRequest, current_user: str = Depends(get_current_user)):
+    try:
+        # Validate course package
+        if order_request.course_package not in COURSE_PACKAGES:
+            raise HTTPException(status_code=400, detail="Invalid course package")
+        
+        package = COURSE_PACKAGES[order_request.course_package]
+        
+        # For now, return a mock order (will be replaced with actual PayPal integration when keys are provided)
+        order_id = f"MOCK_ORDER_{str(uuid.uuid4())[:8].upper()}"
+        
+        # Create transaction record
+        transaction_id = str(uuid.uuid4())
+        transaction_doc = {
+            "id": transaction_id,
+            "order_id": order_id,
+            "user_email": current_user,
+            "course_package": order_request.course_package,
+            "amount": package["price"],
+            "currency": package["currency"],
+            "status": "pending",
+            "created_at": datetime.utcnow(),
+            "paypal_order_id": order_id
+        }
+        
+        # Store in MongoDB
+        await db.payment_transactions.insert_one(transaction_doc)
+        
+        return {
+            "order_id": order_id,
+            "transaction_id": transaction_id,
+            "approval_url": f"https://www.sandbox.paypal.com/checkoutnow?token={order_id}",
+            "message": "PayPal integration ready - configure PayPal keys in admin panel"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create PayPal order: {str(e)}")
+
+@app.post("/api/paypal/capture-order/{order_id}")
+async def capture_paypal_order(order_id: str, current_user: str = Depends(get_current_user)):
+    try:
+        # For now, simulate successful capture (will be replaced with actual PayPal integration)
+        
+        # Update transaction in database
+        update_result = await db.payment_transactions.update_one(
+            {"paypal_order_id": order_id},
+            {
+                "$set": {
+                    "status": "completed",
+                    "completed_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        if update_result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+        
+        # Get updated transaction
+        transaction = await db.payment_transactions.find_one({"paypal_order_id": order_id})
+        
+        # Update user premium status if purchasing main course
+        if transaction["course_package"] == "corso_completo":
+            await db.users.update_one(
+                {"email": current_user},
+                {"$set": {"is_premium": True}}
+            )
+        
+        return {
+            "status": "success",
+            "transaction_id": transaction["id"],
+            "capture_id": f"MOCK_CAPTURE_{str(uuid.uuid4())[:8].upper()}",
+            "message": "Payment completed successfully (mock mode)"
+        }
+        
+    except Exception as e:
+        # Update transaction status to failed
+        await db.payment_transactions.update_one(
+            {"paypal_order_id": order_id},
+            {"$set": {"status": "failed"}}
+        )
+        raise HTTPException(status_code=500, detail=f"Failed to capture payment: {str(e)}")
 
 @app.get("/api/payment/packages")
 async def get_payment_packages():
-    packages = {
-        "corso_completo": {
-            "name": "Corso Completo",
-            "price": 79.99,
-            "currency": "EUR",
-            "description": "Accesso completo a tutti i contenuti del corso"
-        },
-        "powerpoint_strategie": {
-            "name": "PowerPoint Strategie",
-            "price": 10.99,
-            "currency": "EUR",
-            "description": "PowerPoint delle strategie di lettura del grafico"
-        },
-        "video_strategia": {
-            "name": "Video Strategia",
-            "price": 14.99,
-            "currency": "EUR",
-            "description": "Videolezione sulla strategia e sulla sua configurazione"
-        },
-        "powerpoint_nicchia": {
-            "name": "PowerPoint Nicchia",
-            "price": 17.99,
-            "currency": "EUR",
-            "description": "PowerPoint su argomenti di nicchia inerenti al macro argomento"
-        }
-    }
-    return packages
+    return COURSE_PACKAGES
 
 # Admin routes
 @app.post("/api/admin/content/upload")
@@ -357,7 +433,8 @@ async def get_all_bookings(current_user: str = Depends(get_current_user)):
         raise HTTPException(status_code=403, detail="Admin access required")
     
     bookings = await db.bookings.find({}).to_list(length=None)
-    return {"bookings": bookings}
+    serialized_bookings = [serialize_mongodb_doc(booking) for booking in bookings]
+    return {"bookings": serialized_bookings}
 
 @app.post("/api/admin/config")
 async def update_admin_config(config: AdminConfig, current_user: str = Depends(get_current_user)):
@@ -369,7 +446,7 @@ async def update_admin_config(config: AdminConfig, current_user: str = Depends(g
     # Update configuration
     await db.admin_config.update_one(
         {"type": "main"},
-        {"$set": config.dict()},
+        {"$set": config.dict(exclude_unset=True)},
         upsert=True
     )
     
@@ -384,7 +461,11 @@ async def get_admin_config(current_user: str = Depends(get_current_user)):
     
     config = await db.admin_config.find_one({"type": "main"})
     if not config:
-        return {"configured": False}
+        return {
+            "configured": False,
+            "paypal_configured": False,
+            "google_calendar_configured": False
+        }
     
     return {
         "configured": True,

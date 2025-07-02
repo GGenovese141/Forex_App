@@ -1,4 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from 'react';
+import PayPalCheckout from './components/PayPalCheckout';
+import BookingCalendar from './components/BookingCalendar';
+import AdminPanel from './components/AdminPanel';
 import './App.css';
 
 // Context for authentication
@@ -24,6 +27,21 @@ const AuthProvider = ({ children }) => {
       fetchUserInfo(token);
     } else {
       setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Register service worker for PWA
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js')
+          .then((registration) => {
+            console.log('SW registered: ', registration);
+          })
+          .catch((registrationError) => {
+            console.log('SW registration failed: ', registrationError);
+          });
+      });
     }
   }, []);
 
@@ -118,7 +136,7 @@ const AuthProvider = ({ children }) => {
 };
 
 // Header Component
-const Header = () => {
+const Header = ({ onShowLogin, onShowRegister, onShowAdmin }) => {
   const { user, logout } = useAuth();
 
   return (
@@ -134,14 +152,19 @@ const Header = () => {
                   {user.is_premium && <span className="premium-badge">Premium</span>}
                   {user.is_admin && <span className="admin-badge">Admin</span>}
                 </span>
+                {user.is_admin && (
+                  <button onClick={onShowAdmin} className="btn btn-outline">
+                    Admin
+                  </button>
+                )}
                 <button onClick={logout} className="btn btn-outline">
                   Logout
                 </button>
               </div>
             ) : (
               <div className="auth-buttons">
-                <button className="btn btn-outline">Login</button>
-                <button className="btn btn-primary">Registrati</button>
+                <button onClick={onShowLogin} className="btn btn-outline">Login</button>
+                <button onClick={onShowRegister} className="btn btn-primary">Registrati</button>
               </div>
             )}
           </nav>
@@ -152,7 +175,7 @@ const Header = () => {
 };
 
 // Hero Section Component
-const HeroSection = () => {
+const HeroSection = ({ onShowRegister, onShowFreeCourse }) => {
   return (
     <section className="hero">
       <div className="hero-content">
@@ -165,7 +188,7 @@ const HeroSection = () => {
             Dalla teoria alla pratica, dal principiante all'esperto.
           </p>
           <div className="hero-buttons">
-            <button className="btn btn-primary btn-large">
+            <button onClick={onShowFreeCourse} className="btn btn-primary btn-large">
               Inizia Gratuitamente
             </button>
             <button className="btn btn-outline btn-large">
@@ -186,7 +209,7 @@ const HeroSection = () => {
 };
 
 // Course Sections Component
-const CourseSections = () => {
+const CourseSections = ({ onShowPayment, onShowBooking }) => {
   const { user } = useAuth();
 
   const sections = [
@@ -204,7 +227,8 @@ const CourseSections = () => {
       price: 'Gratuito',
       buttonText: 'Inizia Ora',
       buttonClass: 'btn-success',
-      available: true
+      available: true,
+      action: () => onShowBooking()
     },
     {
       id: 'corso_completo',
@@ -220,7 +244,8 @@ const CourseSections = () => {
       price: '€79,99',
       buttonText: user?.is_premium ? 'Accedi al Corso' : 'Acquista Ora',
       buttonClass: user?.is_premium ? 'btn-primary' : 'btn-warning',
-      available: true
+      available: true,
+      action: () => user?.is_premium ? alert('Funzionalità in arrivo!') : onShowPayment('corso_completo', 79.99)
     },
     {
       id: 'contenuti_extra',
@@ -236,7 +261,8 @@ const CourseSections = () => {
       price: 'Da €10,99',
       buttonText: 'Vedi Contenuti',
       buttonClass: 'btn-outline',
-      available: true
+      available: true,
+      action: () => alert('Funzionalità contenuti extra in arrivo!')
     }
   ];
 
@@ -264,7 +290,7 @@ const CourseSections = () => {
               </div>
               <div className="card-footer">
                 <div className="price">{section.price}</div>
-                <button className={`btn ${section.buttonClass} btn-block`}>
+                <button onClick={section.action} className={`btn ${section.buttonClass} btn-block`}>
                   {section.buttonText}
                 </button>
               </div>
@@ -531,10 +557,119 @@ const RegisterModal = ({ isOpen, onClose, onSwitchToLogin }) => {
   );
 };
 
+// Payment Modal Component
+const PaymentModal = ({ isOpen, onClose, coursePackage, amount, userEmail }) => {
+  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
+
+  const handlePaymentSuccess = (result) => {
+    setPaymentSuccess(true);
+    setPaymentError('');
+    setTimeout(() => {
+      onClose();
+      window.location.reload(); // Refresh to update user status
+    }, 3000);
+  };
+
+  const handlePaymentError = (error) => {
+    setPaymentError(error);
+    setPaymentSuccess(false);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Completa il pagamento</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="payment-content">
+          {paymentSuccess ? (
+            <div className="payment-success">
+              <h3>🎉 Pagamento completato!</h3>
+              <p>Benvenuto nel corso premium! La pagina si aggiornerà automaticamente.</p>
+            </div>
+          ) : (
+            <>
+              <div className="payment-details">
+                <h3>Dettagli Acquisto</h3>
+                <p><strong>Corso:</strong> {coursePackage === 'corso_completo' ? 'Corso Completo' : coursePackage}</p>
+                <p><strong>Prezzo:</strong> €{amount}</p>
+              </div>
+              
+              {paymentError && (
+                <div className="error-message">{paymentError}</div>
+              )}
+              
+              <PayPalCheckout
+                coursePackage={coursePackage}
+                userEmail={userEmail}
+                amount={amount}
+                onSuccess={handlePaymentSuccess}
+                onError={handlePaymentError}
+              />
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Booking Modal Component
+const BookingModal = ({ isOpen, onClose, userEmail }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content large-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Prenota la tua Video Lezione Gratuita</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <BookingCalendar 
+            userEmail={userEmail} 
+            onBookingSuccess={() => {
+              alert('Prenotazione effettuata con successo!');
+            }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Admin Modal Component
+const AdminModal = ({ isOpen, onClose }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content extra-large-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-header">
+          <h2>Pannello Amministratore</h2>
+          <button className="modal-close" onClick={onClose}>×</button>
+        </div>
+        <div className="modal-body">
+          <AdminPanel />
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component
 const App = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showBookingModal, setShowBookingModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
+  const [paymentData, setPaymentData] = useState(null);
+  const { user } = useAuth();
 
   const handleSwitchToRegister = () => {
     setShowLoginModal(false);
@@ -546,13 +681,44 @@ const App = () => {
     setShowLoginModal(true);
   };
 
+  const handleShowPayment = (coursePackage, amount) => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+    setPaymentData({ coursePackage, amount, userEmail: user.email });
+    setShowPaymentModal(true);
+  };
+
+  const handleShowBooking = () => {
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+    setShowBookingModal(true);
+  };
+
+  const handleShowAdmin = () => {
+    setShowAdminModal(true);
+  };
+
   return (
     <AuthProvider>
       <div className="App">
-        <Header />
+        <Header 
+          onShowLogin={() => setShowLoginModal(true)}
+          onShowRegister={() => setShowRegisterModal(true)}
+          onShowAdmin={handleShowAdmin}
+        />
         <main>
-          <HeroSection />
-          <CourseSections />
+          <HeroSection 
+            onShowRegister={() => setShowRegisterModal(true)}
+            onShowFreeCourse={handleShowBooking}
+          />
+          <CourseSections 
+            onShowPayment={handleShowPayment}
+            onShowBooking={handleShowBooking}
+          />
           <StatsSection />
         </main>
         
@@ -562,6 +728,10 @@ const App = () => {
               <div className="footer-section">
                 <h3>Forex Master Course</h3>
                 <p>La tua guida definitiva al trading forex professionale.</p>
+                <div className="app-install">
+                  <p><strong>📱 Installa l'App:</strong></p>
+                  <p>Su mobile: tocca il menu del browser e seleziona "Aggiungi alla schermata Home"</p>
+                </div>
               </div>
               <div className="footer-section">
                 <h4>Sezioni</h4>
@@ -597,6 +767,29 @@ const App = () => {
           onClose={() => setShowRegisterModal(false)}
           onSwitchToLogin={handleSwitchToLogin}
         />
+
+        {paymentData && (
+          <PaymentModal 
+            isOpen={showPaymentModal}
+            onClose={() => setShowPaymentModal(false)}
+            coursePackage={paymentData.coursePackage}
+            amount={paymentData.amount}
+            userEmail={paymentData.userEmail}
+          />
+        )}
+
+        <BookingModal 
+          isOpen={showBookingModal}
+          onClose={() => setShowBookingModal(false)}
+          userEmail={user?.email}
+        />
+
+        {user?.is_admin && (
+          <AdminModal 
+            isOpen={showAdminModal}
+            onClose={() => setShowAdminModal(false)}
+          />
+        )}
       </div>
     </AuthProvider>
   );
