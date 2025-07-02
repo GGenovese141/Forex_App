@@ -101,3 +101,133 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Test the forex course app backend that we just built. Please test these key functionalities: 1. Health Check, 2. User Registration, 3. User Login, 4. User Info, 5. Course Packages, 6. Free Content, 7. Booking Request"
+
+backend:
+  - task: "Health Check Endpoint"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Health check endpoint (/api/health) is working correctly. Returns status 'healthy' and current timestamp."
+
+  - task: "User Registration"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "User registration endpoint (/api/auth/register) is working correctly. Successfully registers a new user with GDPR consent and returns an access token."
+
+  - task: "User Login"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "User login endpoint (/api/auth/login) is working correctly. Successfully authenticates a registered user and returns an access token."
+
+  - task: "User Info"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "User info endpoint (/api/auth/me) is working correctly. Returns the authenticated user's information when provided with a valid token."
+
+  - task: "Course Packages"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Payment packages endpoint (/api/payment/packages) is working correctly. Returns the correct pricing structure: €79.99 for main course, €10.99, €14.99, €17.99 for extras."
+
+  - task: "Free Content"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Free content endpoint (/api/courses/free) is working correctly. Returns an empty list as no free content has been added yet."
+
+  - task: "Booking Request"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "Booking request endpoint (/api/bookings/request) is working correctly. Successfully creates a booking for a video lesson."
+
+  - task: "Get My Bookings"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 1
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "Get my bookings endpoint (/api/bookings/my) is not working correctly. There's an issue with MongoDB ObjectId serialization. Error: ValueError: [TypeError(\"'ObjectId' object is not iterable\"), TypeError('vars() argument must have __dict__ attribute')]"
+
+frontend:
+  - task: "Frontend Testing"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Frontend testing was not performed as per instructions to focus on backend testing only."
+
+metadata:
+  created_by: "testing_agent"
+  version: "1.0"
+  test_sequence: 1
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Get My Bookings"
+  stuck_tasks:
+    - "Get My Bookings"
+  test_all: false
+  test_priority: "high_first"
+
+agent_communication:
+  - agent: "testing"
+    message: "I've completed testing of the backend API endpoints. All core functionality is working correctly except for the 'Get My Bookings' endpoint which has an issue with MongoDB ObjectId serialization. This is a common issue when returning MongoDB documents directly without proper serialization. The main agent should modify the server.py file to convert ObjectId to string before returning the bookings."
