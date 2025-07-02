@@ -238,9 +238,8 @@ def run_all_tests():
         ("Get User Info", test_get_user_info),
         ("Payment Packages", test_get_payment_packages),
         ("Free Content", test_get_free_content),
-        ("Booking Request", test_booking_request)
-        # Skipping "Get My Bookings" due to ObjectId serialization issue
-        # ("Get My Bookings", test_get_my_bookings)
+        ("Booking Request", test_booking_request),
+        ("Get My Bookings", test_get_my_bookings)
     ]
     
     results = {}
