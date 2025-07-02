@@ -1,5 +1,6 @@
 import os
 import uuid
+import io
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict
 from fastapi import FastAPI, HTTPException, Depends, File, UploadFile, Form, BackgroundTasks
