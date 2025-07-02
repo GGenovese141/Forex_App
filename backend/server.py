@@ -261,7 +261,9 @@ async def request_booking(booking: BookingRequest):
 @app.get("/api/bookings/my")
 async def get_my_bookings(current_user: str = Depends(get_current_user)):
     bookings = await db.bookings.find({"user_email": current_user}).to_list(length=None)
-    return {"bookings": bookings}
+    # Serialize MongoDB documents to make them JSON-serializable
+    serialized_bookings = [serialize_mongodb_doc(booking) for booking in bookings]
+    return {"bookings": serialized_bookings}
 
 # Payment routes (PayPal integration placeholder)
 @app.post("/api/payment/create-order")
