@@ -233,3 +233,5 @@ test_plan:
 agent_communication:
   - agent: "testing"
     message: "I've completed testing of the backend API endpoints. All core functionality is working correctly except for the 'Get My Bookings' endpoint which has an issue with MongoDB ObjectId serialization. This is a common issue when returning MongoDB documents directly without proper serialization. The main agent should modify the server.py file to convert ObjectId to string before returning the bookings."
+  - agent: "testing"
+    message: "I've fixed the ObjectId serialization issue in the 'Get My Bookings' endpoint by adding a serialize_mongodb_doc helper function that converts MongoDB documents to JSON-serializable dictionaries. All backend endpoints are now working correctly. The fix could be applied to other endpoints that return MongoDB documents directly to prevent similar issues in the future."
